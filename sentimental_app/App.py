@@ -12,10 +12,11 @@ ALLOWED_EXTENSIONS = {'wav', 'mp3'}
 
 app = Flask(__name__)
 CORS(app)
-Swagger(app)  # Initialize Swagger
+Swagger(app)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
+# Initialize model
 model = SentimentModel()
 model.load_state_dict(torch.load('model/best_model.pth', map_location=torch.device('cpu')))
 model.eval()
@@ -23,47 +24,43 @@ model.eval()
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def validate_audio_tensor(tensor):
+    """
+    Validate and reshape audio tensor if necessary.
+    """
+    if not isinstance(tensor, torch.Tensor):
+        raise ValueError("Invalid audio format")
+    
+    if len(tensor.shape) == 1:
+        tensor = tensor.unsqueeze(0)
+    
+    expected_feature_size = 2048
+    
+    if tensor.shape[1] != expected_feature_size:
+        if tensor.shape[1] > expected_feature_size:
+            tensor = tensor[:, :expected_feature_size]
+        else:
+            padding_size = expected_feature_size - tensor.shape[1]
+            tensor = torch.nn.functional.pad(tensor, (0, padding_size))
+    
+    return tensor
+
 @app.route('/predict', methods=['POST'])
-@swag_from('docs/predict.yml')  # Load Swagger documentation from an external file
+@swag_from('docs/predict.yml')
 def upload_and_predict():
-    """
-    Upload an audio file and get sentiment prediction.
-    ---
-    consumes:
-      - multipart/form-data
-    parameters:
-      - name: file
-        in: formData
-        type: file
-        required: true
-        description: The audio file to upload
-    responses:
-      200:
-        description: The sentiment prediction result
-        schema:
-          id: SentimentPrediction
-          properties:
-            message:
-              type: string
-              description: Success message
-            filename:
-              type: string
-              description: Name of the uploaded file
-            sentiment:
-              type: string
-              description: Predicted sentiment (negative, neutral, positive)
-      400:
-        description: Bad request (e.g., missing file, invalid format)
-      500:
-        description: Internal server error (e.g., prediction error)
-    """
     if 'file' not in request.files:
-        return jsonify({"error": "No file part"}), 400
+        return jsonify({
+            "success": False,
+            "message": "Please select an audio file"
+        }), 400
     
     file = request.files['file']
     
     if file.filename == '':
-        return jsonify({"error": "No selected file"}), 400
+        return jsonify({
+            "success": False,
+            "message": "No file selected"
+        }), 400
 
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
@@ -71,22 +68,38 @@ def upload_and_predict():
         file.save(file_path)
 
         try:
-            # Preprocess the audio
+            # Process audio and make prediction
             audio_tensor = preprocess_audio(file_path)
+            audio_tensor = validate_audio_tensor(audio_tensor)
             
-            # Run the model and get the prediction
             with torch.no_grad():
                 output = model(audio_tensor)
                 prediction = torch.argmax(output, dim=1).item()
-            
-            sentiment = ['negative', 'neutral', 'positive'][prediction]
-
-            return jsonify({"message": "File uploaded successfully", "filename": filename, "sentiment": sentiment}), 200
-        
+                sentiment = ['negative', 'neutral', 'positive'][prediction]
+                
+                # Clean up the uploaded file
+                os.remove(file_path)
+                
+                return jsonify({
+                    "success": True,
+                    "sentiment": sentiment,
+                    "message": f"Analysis complete: {sentiment} sentiment detected"
+                }), 200
+                
         except Exception as e:
-            return jsonify({"error": f"Error during prediction: {str(e)}"}), 500
+            # Clean up the uploaded file in case of error
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            
+            return jsonify({
+                "success": False,
+                "message": "Unable to process audio file. Please ensure it's a valid audio recording."
+            }), 500
     
-    return jsonify({"error": "Invalid file format"}), 400
+    return jsonify({
+        "success": False,
+        "message": "Please upload a WAV or MP3 file"
+    }), 400
 
 if __name__ == '__main__':
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
