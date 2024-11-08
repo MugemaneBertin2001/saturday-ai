@@ -52,8 +52,8 @@ This project is an **Audio Sentiment Analysis Application** powered by a machine
 
 1. **Launch the App**.
 2. **Access it here**: `http://localhost:5000/apidocs/`
-2. **Upload Audio**: Choose an audio file or record live audio directly.
-3. **Analyze Sentiment**: The app will process the audio and display the sentiment analysis result, including detected emotions.
+3. **Upload Audio**: Choose an audio file or record live audio directly.
+4. **Analyze Sentiment**: The app will process the audio and display the sentiment analysis result, including detected emotions.
 
 ## Contributors
 
