@@ -63,7 +63,7 @@ We are grateful to the following contributors who have made significant contribu
 - **KWIZERA KABUNDEGE Christophe** - [GitHub](https://github.com/kabundege)
 - **MUGEMANE Bertin** - [GitHub](https://github.com/mugemanebertin2001)
 - **KWIZERA Africa Hubert** - [GitHub](https://github.com/Umwe)
-- **MURASHI GASARABWE Yvan** - [GitHub](https://github.com/yvan2000)
+- **MURASHI GASARABWE Yvan** - [GitHub](https://github.com/murashi07)
 
 Each contributor has been integral to the development and implementation of the application's core functionalities.
 
